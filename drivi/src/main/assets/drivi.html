@@ -1,0 +1,355 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drivi</title>
+<style>
+:root{--bg:#000;--ink:#eef1f5;--mut:#98a3b3;--card:#0c0d10;--line:#2a2f38;--acc:#7da2ff;--on:#0b1220;--bad:#e5534b;--good:#1e9e5a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0 auto;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif;padding:14px;max-width:760px}
+h1{font-size:20px;margin:4px 0 2px}
+.sub{color:var(--mut);font-size:12.5px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 12px;border-radius:8px;cursor:pointer}
+.pri,.tabs .on{background:var(--acc);color:var(--on);border-color:var(--acc)}
+.dang{background:var(--bad);color:#fff;border-color:var(--bad)}
+.sm{padding:6px 9px;font-size:12.5px}
+input[type=text],input[type=password],select{font:inherit;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
+select{width:auto}
+.mut{color:var(--mut);font-size:12.5px}
+.tabs{display:flex;gap:6px;margin-bottom:10px}.tabs button{flex:1}.tabs .rf{flex:none}
+.grid{display:flex;flex-wrap:wrap;gap:4px}
+.cell{position:relative;width:calc(33.333% - 3px);padding-top:calc(33.333% - 3px);background:var(--card);border-radius:4px;overflow:hidden}
+.cell img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;cursor:pointer}
+.cell input{position:absolute;top:5px;left:5px;width:20px;height:20px}
+.cell .dur{position:absolute;right:5px;bottom:4px;background:rgba(0,0,0,.65);padding:1px 6px;border-radius:9px;font-size:11px;pointer-events:none}
+.entry{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
+.entry .hd{display:flex;align-items:flex-start;gap:8px}.entry .hd input{width:18px;height:18px;margin-top:3px}
+.entry .meta{flex:1;min-width:0}.entry .ttl{font-weight:700}.entry small{color:var(--mut)}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:11px;color:var(--mut);margin:3px 4px 0 0}
+.chip.on{background:rgba(125,162,255,.18);color:var(--acc);border-color:var(--acc)}
+.chip.off{background:rgba(229,83,75,.15);color:var(--bad);border-color:var(--bad)}
+.thumbs{display:flex;gap:5px;overflow:auto;margin-top:8px}.thumbs img{width:52px;height:52px;object-fit:cover;border-radius:5px;border:1px solid var(--line);cursor:pointer}
+.raw{white-space:pre-wrap;font:12px/1.5 ui-monospace,monospace;color:var(--mut);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;margin-top:8px;max-height:240px;overflow:auto}
+.warn{color:var(--bad);font-size:13px;margin:6px 0}
+#vw{position:fixed;top:0;left:0;right:0;bottom:0;z-index:70;display:none;flex-direction:column;background:rgba(0,0,0,.96)}#vw.on{display:flex}
+#vw .top{display:flex;gap:8px;align-items:center;padding:10px 12px}#vw .top span{flex:1;font-size:12.5px;color:var(--mut)}
+.ghd{width:100%;font-weight:700;margin:10px 0 4px;color:var(--ink)}
+#vw .mid{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative}
+#vw img{max-width:100%;max-height:100%;object-fit:contain}
+#vw .nav{position:absolute;top:50%;font-size:30px;color:#fff;background:rgba(0,0,0,.45);border:none;padding:10px 12px;margin-top:-26px}
+</style></head><body>
+<script src="token.js"></script>
+<h1>Drivi</h1>
+<div class="sub">Photo and video previews from your phones, and QuickAns history - from your own cloud.</div>
+
+<div class="card" id="setup" hidden></div>
+<div id="app" hidden>
+  <div class="tabs"><button id="tM" class="on">Media</button><button id="tN">Notifications</button><button id="tH">History</button><button id="tA">Account</button><button id="rf" class="rf">↻</button></div>
+  <div class="mut" id="stat" style="margin-bottom:8px"></div>
+  <div id="media">
+    <div class="row" style="margin-bottom:8px">
+      <select id="dev"><option value="">All phones</option></select>
+      <select id="mtype"><option value="all">Photos & videos</option><option value="p">Photos only</option><option value="v">Videos only</option></select>
+      <button class="sm" id="selAll">Select all</button>
+      <select id="dlq"><option value="pv">Download: full preview</option><option value="th">Download: thumbnail (smaller, faster)</option></select>
+      <button class="sm" id="dlSel" disabled>Download selected (0)</button>
+      <button class="sm dang" id="delSel" disabled>Delete selected (0)</button>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <input type="date" id="mfrom"><span class="mut">to</span><input type="date" id="mto">
+      <button class="sm dang" id="mrangeDel">Delete range</button>
+      <button class="sm dang" id="mAllDel">Delete ALL (every phone)</button>
+    </div>
+    <div class="mut" id="dlnote" style="margin-bottom:8px">A video's "download" is its preview frame (a picture), not the video itself - only previews are stored in the cloud.</div>
+    <div class="mut" id="cnt"></div>
+    <div class="grid" id="grid"></div>
+    <div class="row" style="justify-content:center;margin:12px 0"><button id="more" hidden>Show more</button></div>
+  </div>
+  <div id="hist" hidden>
+    <div class="card">
+      <input type="text" id="q" placeholder="Search class, subject, device, date…">
+      <div class="row" style="margin-top:8px">
+        <select id="sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="cls">By class</option><option value="sub">By subject</option><option value="dev">By device</option></select>
+        <button class="sm" id="hSelAll">Select all</button>
+        <button class="sm dang" id="hDel" disabled>Delete selected (0)</button>
+      </div>
+      <div class="mut" id="hcnt" style="margin-top:6px"></div>
+    </div>
+    <div id="hlist"></div>
+  </div>
+  <div id="notifp" hidden>
+    <div class="card">
+      <div class="row">
+        <input type="date" id="nfrom"><span class="mut">to</span><input type="date" id="nto">
+        <button class="sm dang" id="nrangeDel">Delete range</button>
+        <button class="sm dang" id="nAllDel">Delete ALL (every phone)</button>
+      </div>
+    </div>
+    <div class="row" style="margin:0 0 8px">
+      <button class="sm" id="nSelAll">Select all</button>
+      <button class="sm dang" id="nDel" disabled>Delete selected (0)</button>
+    </div>
+    <div class="mut" id="ncnt" style="margin-bottom:8px"></div>
+    <div id="nlist"></div>
+  </div>
+  <div id="acctp" hidden>
+    <div class="card" id="acctbox"></div>
+    <div class="card" id="devbox"></div>
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:6px">Pre-ID for another phone</div>
+      <div class="mut" style="margin-bottom:8px">Make a one-time code, then type it into QuickAns on the new phone on its "Enter pre-ID" screen instead of uploading an ID card.</div>
+      <div class="row"><button id="mkPre" class="sm">Generate a pre-ID</button><span id="preOut" style="font:16px/1 ui-monospace,monospace;letter-spacing:2px"></span></div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:14px"><button class="sm" id="chg">Change cloud</button></div>
+</div>
+
+<div id="vw">
+  <div class="top"><button class="sm" id="vx">✕ Close</button><span id="vcap"></span><button class="sm" id="vdl">Download</button><button class="sm dang" id="vdel">Delete</button></div>
+  <div class="mid"><button class="nav" id="vp" style="left:6px">‹</button><img id="vimg"><button class="nav" id="vn" style="right:6px">›</button></div>
+</div>
+
+<script>
+(function(){
+const LU='drivi_url',LK='drivi_key',C=window.QA_CLOUD||{};
+const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v)}catch(e){}return''};
+const cfg=()=>({url:String(C.url||ls(LU)).trim().replace(/\/+$/,''),key:String(C.key||ls(LK)).trim()});
+const baked=()=>!!(C.url&&C.key);
+const $=id=>document.getElementById(id);
+const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+const fmt=ts=>{if(!ts)return'?';const d=new Date(ts);return d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})};
+const mb=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB';
+const dur=ms=>{const s=Math.round((ms||0)/1000);return Math.floor(s/60)+':'+('0'+(s%60)).slice(-2)};
+
+async function api(path,opt){const c=cfg(),o=opt||{};
+  const r=await fetch(c.url+'/api/'+path,{method:o.method||'GET',body:o.body,headers:Object.assign({'X-Key':c.key},o.headers||{})});
+  if(!r.ok)throw new Error(r.status===401?'Wrong cloud key':'Cloud answered '+r.status);return r}
+const pic=(kind,id)=>{const c=cfg();return c.url+'/api/'+kind+'/'+encodeURIComponent(id)+'?k='+encodeURIComponent(c.key)};
+async function pages(path){let out=[],cur='';do{const j=await(await api(path+(path.indexOf('?')<0?'?':'&')+'limit=500'+(cur?'&cursor='+encodeURIComponent(cur):''))).json();out=out.concat(j.items);cur=j.cursor}while(cur);return out}
+
+/* ---------- setup ---------- */
+function setup(){
+  const c=$('setup');c.hidden=false;$('app').hidden=true;c.innerHTML='';
+  c.append(h('div',0,'Enter your QuickAns cloud address and key (the same ones QuickAns uses). They stay on this device.'));
+  const u=h('input'),k=h('input'),b=h('button','pri','Connect');u.type='text';k.type='password';u.placeholder='https://quickans-cloud.yourname.workers.dev';k.placeholder='Cloud key';
+  u.style.margin='10px 0 8px';k.style.marginBottom='10px';
+  b.onclick=()=>{if(!u.value.trim()||!k.value.trim())return;ls(LU,u.value.trim());ls(LK,k.value.trim());boot()};
+  c.append(u,k,b)}
+
+/* ---------- photos and videos ---------- */
+let items=[],view=[],shown=0,sel=new Set(),vi=0;
+function mediaStats(){
+  const p=items.filter(x=>x.t==='p').length,v=items.length-p,sz=items.reduce((a,x)=>a+(x.sz||0),0);
+  $('stat').textContent=p+' photos · '+v+' videos · '+mb(sz)+' stored'+(histN!==null?' · '+histN+' saved answers':'')}
+function devSelect(){const s=$('dev'),cur=s.value,ds={};items.forEach(x=>{ds[x.dev||'Phone']=1});
+  s.innerHTML='<option value="">All phones</option>';Object.keys(ds).sort().forEach(d=>{const o=h('option',0,d);o.value=d;s.append(o)});s.value=cur}
+function build(){
+  const dv=$('dev').value,tf=$('mtype').value;
+  view=items.filter(x=>(tf==='all'||x.t===tf)&&(!dv||(x.dev||'Phone')===dv));
+  // order folders by their most recent file, newest file first within each folder
+  const latest={};view.forEach(x=>{const f=x.f||'Other';if(!(f in latest)||(x.ts||0)>latest[f])latest[f]=x.ts||0});
+  view.sort((a,b)=>{const fa=a.f||'Other',fb=b.f||'Other';return fa!==fb?(latest[fb]||0)-(latest[fa]||0):(b.ts||0)-(a.ts||0)});
+  shown=0;$('grid').innerHTML='';$('grid').dataset.lastF='';more()}
+function more(){
+  const g=$('grid'),end=Math.min(view.length,shown+60);let lastF=g.dataset.lastF||'';
+  for(let i=shown;i<end;i++){const x=view[i],f=x.f||'Other';
+    if(f!==lastF){g.append(h('div','ghd','📁 '+f));lastF=f}
+    g.append(cell(x,i))}
+  g.dataset.lastF=lastF;
+  shown=end;$('more').hidden=shown>=view.length;
+  $('cnt').textContent=view.length?('Showing '+shown+' of '+view.length):'Nothing here yet.'}
+function cell(x,i){
+  const d=h('div','cell'),im=h('img');im.src=pic('th',x.id);im.alt=x.n||'';im.onclick=()=>openV(i);
+  const cb=h('input');cb.type='checkbox';cb.checked=sel.has(x.id);cb.onchange=()=>{cb.checked?sel.add(x.id):sel.delete(x.id);selBar()};
+  d.append(im,cb);if(x.t==='v')d.append(h('span','dur','▶ '+dur(x.d)));return d}
+function selBar(){
+  $('delSel').disabled=!sel.size;$('delSel').textContent='Delete selected ('+sel.size+')';
+  $('dlSel').disabled=!sel.size;$('dlSel').textContent='Download selected ('+sel.size+')'}
+async function delMedia(ids){
+  if(!ids.length||!confirm('Delete '+ids.length+' preview'+(ids.length===1?'':'s')+' from the cloud? The originals stay on the phone. This cannot be undone.'))return;
+  let bad=0;
+  for(const id of ids){try{await api('m/'+encodeURIComponent(id),{method:'DELETE'});items=items.filter(x=>x.id!==id);sel.delete(id)}catch(e){bad++}}
+  if(bad)alert(bad+' could not be deleted.');
+  mediaStats();build();selBar()}
+function openV(i){vi=i;showV()}
+function showV(){
+  const x=view[vi];if(!x)return;$('vdel').hidden=false;$('vdl').hidden=false;$('vw').classList.add('on');$('vimg').src=pic('pv',x.id);
+  $('vcap').textContent=(x.t==='v'?'▶ video preview · ':'')+(x.n||'')+' · '+fmt(x.ts)+' · '+(x.dev||'')+(x.f?' · '+x.f:'')+(x.t==='v'?' · '+dur(x.d):'')+' · '+(vi+1)+'/'+view.length;
+  $('vp').hidden=vi<=0;$('vn').hidden=vi>=view.length-1}
+function step(d){const n=vi+d;if(n<0||n>=view.length)return;if(n>=shown)more();vi=n;showV()}
+let tx=0;
+$('vw').addEventListener('touchstart',e=>{tx=e.touches[0].clientX});
+$('vw').addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>60)step(dx<0?1:-1)});
+$('vp').onclick=()=>step(-1);$('vn').onclick=()=>step(1);
+$('vx').onclick=()=>{$('vw').classList.remove('on');$('vimg').removeAttribute('src')};
+$('vdl').onclick=()=>{const x=view[vi];if(x)downloadMedia([x.id])};
+$('vdel').onclick=async()=>{const x=view[vi];if(!x)return;await delMedia([x.id]);if(!items.some(y=>y.id===x.id))$('vx').onclick()};
+
+/* ---------- history ---------- */
+let recs=[],hsel=new Set(),histN=null;
+function order(r){return(r.items||[]).slice().sort((a,b)=>String(a.n).localeCompare(String(b.n),undefined,{numeric:true}))}
+function plainItem(x){const n='Q'+(x.n||'?')+'. ';
+  if(x.t==='mcq')return n+'('+(x.a||'?')+')';if(x.t==='short')return n+(x.a||'');if(x.t==='long')return n+(x.s||[]).join(' / ');
+  if(x.t==='table')return n+'[table] '+(x.rows||[]).map(r=>r.join(' | ')).join('  ||  ');
+  if(x.t==='diagram')return n+'[diagram] '+(x.a||'')+' - '+(x.s||[]).join(', ');return n+JSON.stringify(x)}
+function card(r){
+  const e=h('div','entry'),hd=h('div','hd'),cb=h('input');cb.type='checkbox';cb.checked=hsel.has(r.id);
+  cb.onchange=()=>{cb.checked?hsel.add(r.id):hsel.delete(r.id);hBar()};
+  const m=h('div','meta');m.append(h('div','ttl',(r.cls&&r.cls!=='Other'?'Class '+r.cls+' · ':'')+(r.sub||'Unsorted')),h('small',0,fmt(r.ts)+' · '+(r.dev||'Unknown')));
+  const ch=h('div');[[r.mode==='online'?'Online':'Offline',r.mode==='online'?'on':'off'],[(r.ni||0)+' answers',''],[(r.nf||0)+' files','']].forEach(c=>ch.append(h('span','chip '+c[1],c[0])));m.append(ch);
+  hd.append(cb,m);e.append(hd);
+  let rec=null;const get=async()=>rec||(rec=await(await api('h/'+encodeURIComponent(r.id))).json());
+  const row=h('div','row');row.style.marginTop='8px';
+  const bA=h('button','sm','View answers'),bP=h('button','sm','Photos'),bD=h('button','sm dang','Delete');
+  const out=h('div','raw');out.hidden=true;const th=h('div','thumbs');
+  bA.onclick=async()=>{if(!out.hidden){out.hidden=true;return}out.hidden=false;out.textContent='Loading…';try{const x=await get();out.textContent=order(x).map(plainItem).join('\n\n')||'(no answers saved)'}catch(er){out.textContent=er.message}};
+  bP.onclick=async()=>{if(th.children.length){th.innerHTML='';return}try{const x=await get();(x.files||[]).filter(f=>f.thumb).forEach(f=>{const im=h('img');im.src=f.thumb;im.title=f.name||'';
+    im.onclick=()=>{$('vimg').src=f.thumb;$('vcap').textContent=(f.name||'')+' · '+fmt(r.ts);$('vp').hidden=true;$('vn').hidden=true;$('vdel').hidden=true;$('vdl').hidden=true;$('vw').classList.add('on')};th.append(im)});
+    if(!th.children.length)th.append(h('span','mut','No photos saved in this entry.'))}catch(er){th.textContent=er.message}};
+  bD.onclick=()=>delHist([r.id]);row.append(bA,bP,bD);e.append(row,th,out);return e}
+function hBar(){const b=$('hDel');b.disabled=!hsel.size;b.textContent='Delete selected ('+hsel.size+')'}
+function drawHist(){
+  const L=$('hlist');L.innerHTML='';const q=$('q').value.trim().toLowerCase(),so=$('sort').value;
+  let v=recs.filter(r=>!q||((r.cls||'')+' '+(r.sub||'')+' '+(r.dev||'')+' '+fmt(r.ts)+' '+(r.mode||'')).toLowerCase().includes(q));
+  v.sort((a,b)=>so==='old'?(a.ts||0)-(b.ts||0):so==='cls'?String(a.cls).localeCompare(String(b.cls))||b.ts-a.ts:so==='sub'?String(a.sub).localeCompare(String(b.sub))||b.ts-a.ts:so==='dev'?String(a.dev).localeCompare(String(b.dev))||b.ts-a.ts:(b.ts||0)-(a.ts||0));
+  $('hcnt').textContent=v.length+' of '+recs.length+' shown';
+  if(!v.length)L.append(h('div','mut','Nothing matches.'));v.forEach(r=>L.append(card(r)))}
+async function delHist(ids){
+  if(!ids.length||!confirm('Delete '+ids.length+' saved answer'+(ids.length===1?'':'s')+' from the cloud? Phones keep their own copy. This cannot be undone.'))return;
+  let bad=0;for(const id of ids){try{await api('h/'+encodeURIComponent(id),{method:'DELETE'});recs=recs.filter(r=>r.id!==id);hsel.delete(id)}catch(e){bad++}}
+  if(bad)alert(bad+' could not be deleted.');histN=recs.length;mediaStats();drawHist();hBar()}
+
+/* ---------- notifications (saved full size) ---------- */
+let notifs=[],nsel=new Set();
+function nCard(x){
+  const e=h('div','entry'),hd=h('div','hd'),cb=h('input');cb.type='checkbox';cb.checked=nsel.has(x.id);
+  cb.onchange=()=>{cb.checked?nsel.add(x.id):nsel.delete(x.id);nBar()};
+  const m=h('div','meta');m.append(h('div','ttl',(x.app||x.pkg||'?')+(x.title?' · '+x.title:'')),h('small',0,fmt(x.ts)));
+  if(x.text)m.append(h('div',0,x.text));
+  hd.append(cb,m);e.append(hd);
+  if(x.hasImg){const im=h('img');im.style.cssText='max-width:100%;border-radius:8px;margin-top:8px;cursor:pointer';im.src=cfg().url+'/api/notif/'+encodeURIComponent(x.id)+'/img?k='+encodeURIComponent(cfg().key);
+    im.onclick=()=>{$('vimg').src=im.src;$('vcap').textContent=(x.app||'')+' · '+fmt(x.ts);$('vp').hidden=true;$('vn').hidden=true;$('vdel').hidden=true;$('vdl').hidden=true;$('vw').classList.add('on')};e.append(im)}
+  const bD=h('button','sm dang','Delete');bD.style.marginTop='8px';bD.onclick=()=>delNotifs([x.id]);e.append(bD);
+  return e}
+function nBar(){const b=$('nDel');b.disabled=!nsel.size;b.textContent='Delete selected ('+nsel.size+')'}
+function drawNotifList(){
+  const L=$('nlist');L.innerHTML='';const v=notifs.slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
+  $('ncnt').textContent=v.length+' saved';
+  if(!v.length)L.append(h('div','mut','Nothing saved yet.'));v.forEach(x=>L.append(nCard(x)))}
+async function drawNotifs(){$('ncnt').textContent='Loading…';try{notifs=await pages('notif')}catch(e){notifs=[]}nsel=new Set();nBar();drawNotifList()}
+async function delNotifs(ids){
+  if(!ids.length||!confirm('Delete '+ids.length+' notification'+(ids.length===1?'':'s')+' from the cloud? This cannot be undone.'))return;
+  let bad=0;for(const id of ids){try{await api('notif/'+encodeURIComponent(id),{method:'DELETE'});notifs=notifs.filter(x=>x.id!==id);nsel.delete(id)}catch(e){bad++}}
+  if(bad)alert(bad+' could not be deleted.');drawNotifList();nBar()}
+$('nSelAll').onclick=()=>{notifs.forEach(x=>nsel.add(x.id));drawNotifList();nBar()};
+$('nDel').onclick=()=>delNotifs(Array.from(nsel));
+$('nrangeDel').onclick=async()=>{
+  const fv=$('nfrom').value,tv=$('nto').value;if(!fv||!tv){alert('Pick both dates.');return}
+  const from=new Date(fv+'T00:00:00').getTime(),to=new Date(tv+'T23:59:59').getTime();
+  if(!confirm('Delete every notification from '+fv+' to '+tv+', on every phone? This cannot be undone.'))return;
+  try{const j=await(await api('notif?from='+from+'&to='+to,{method:'DELETE'})).json();alert(j.deleted+' deleted.');drawNotifs()}catch(e){alert('Failed: '+e.message)}};
+$('nAllDel').onclick=async()=>{
+  if(!confirm('Delete EVERY notification from the cloud, on every phone? This cannot be undone.'))return;
+  if(!confirm('Really delete all notifications? This is permanent.'))return;
+  try{const j=await(await api('notif?from=0&to='+(Date.now()+86400000),{method:'DELETE'})).json();alert(j.deleted+' deleted.');drawNotifs()}catch(e){alert('Failed: '+e.message)}};
+
+/* ---------- account panel ---------- */
+let acctCache=null;
+async function getAcct(){if(acctCache)return acctCache;try{acctCache=await(await api('acct')).json()}catch(e){acctCache={missing:true}}return acctCache}
+async function drawDevices(){
+  const b=$('devbox');b.innerHTML='Loading phones…';
+  let list=[];try{list=(await pages('dev'))}catch(e){}
+  b.innerHTML='';b.append(h('div',0,'Backup per phone'));
+  if(!list.length){b.append(h('div','mut','No phone has checked in yet.'));return}
+  list.sort((a,b)=>(b.lastSeen||0)-(a.lastSeen||0));
+  list.forEach(d=>{
+    const row=h('div','row');row.style.margin='8px 0';
+    const cur=d.backupOn!==false;
+    const nm=h('div',0,(d.model||d.id)+(d.lastSeen?' · last seen '+fmt(d.lastSeen):''));nm.style.flex='1';
+    const btn=h('button','sm',cur?'Backup: ON':'Backup: OFF');
+    btn.onclick=async()=>{btn.disabled=true;
+      try{await api('dev/'+encodeURIComponent(d.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({backupOn:!cur})})}catch(e){}
+      drawDevices()};
+    row.append(nm,btn);b.append(row);
+    // speed + daily limit for this phone (photos/videos only - answers are never limited)
+    const opt=(sel,vals,cur)=>{vals.forEach(([v,t])=>{const o=h('option',0,t);o.value=v;sel.append(o)});sel.value=String(cur)};
+    const sp=h('select'),cp=h('select');
+    opt(sp,[[256,'256 KB/s'],[512,'512 KB/s'],[1024,'1 MB/s'],[2048,'2 MB/s'],[5120,'5 MB/s'],[0,'Unlimited']],d.speedKB!=null?d.speedKB:2048);
+    opt(cp,[[100,'100 MB'],[200,'200 MB'],[400,'400 MB'],[800,'800 MB'],[1500,'1.5 GB'],[0,'No limit']],d.capMB!=null?d.capMB:400);
+    const save=async(body)=>{try{await api('dev/'+encodeURIComponent(d.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}catch(e){alert('Could not save: '+e.message)}};
+    sp.onchange=()=>save({speedKB:+sp.value});cp.onchange=()=>save({capMB:+cp.value});
+    const r2=h('div','row');r2.style.cssText='margin:-2px 0 10px;gap:8px;flex-wrap:wrap;align-items:center';
+    const l1=h('span','mut','Speed (screen on)'),l2=h('span','mut','Daily limit (mobile data)');
+    r2.append(l1,sp,l2,cp);b.append(r2)})
+  b.append(h('div','mut','Applies the next time the phone checks in (within a few hours, or when QuickAns is opened). Wi-Fi has no daily limit. Answer history is never limited.'))}
+async function drawAcct(){
+  const b=$('acctbox');b.innerHTML='Loading…';
+  const a=await getAcct();
+  if(!a||a.missing){b.innerHTML='';b.append(h('div',0,'No account has been set up from a phone yet.'));return}
+  b.innerHTML='';
+  if(a.hasId){const im=h('img');im.src=cfg().url+'/api/acct/id?k='+encodeURIComponent(cfg().key);im.style.cssText='width:100%;border-radius:8px;margin-bottom:10px';b.append(im)}
+  b.append(h('div',0,a.viaPreId?'Linked with a pre-ID (no ID card on file).':'Linked with an uploaded ID card.'));
+  const row=h('div','row');row.style.marginTop='10px';
+  const bOut=h('button','sm','Log out the phone'),bEnd=h('button','sm dang','Terminate account');
+  bOut.onclick=async()=>{
+    if(!confirm('Log the linked phone out of QuickAns? It will have to enter the password again next time it opens and checks in. The ID card stays on file.'))return;
+    try{await api('acct/relogin',{method:'POST'});acctCache=null;alert('The phone has been logged out.')}catch(e){alert('Could not log it out: '+e.message)}};
+  bEnd.onclick=async()=>{
+    if(!confirm('Terminate the account? This deletes the ID card and password from the cloud for good - this exact ID card can never be used to set up QuickAns again. The phone will need a new ID card or a pre-ID once it next checks in.'))return;
+    try{await api('acct',{method:'DELETE'});alert('Account terminated.');acctCache=null;location.reload()}catch(e){alert('Could not terminate: '+e.message)}};
+  row.append(bOut,bEnd);b.append(row)}
+$('mkPre').onclick=async()=>{$('preOut').textContent='…';try{const j=await(await api('preid',{method:'POST'})).json();$('preOut').textContent=j.code}catch(e){$('preOut').textContent='failed'}};
+
+/* ---------- tabs and start ---------- */
+let tab='m';
+function tabTo(t){
+  tab=t;['M','N','H','A'].forEach(k=>$('t'+k).classList.toggle('on',k.toLowerCase()===t));
+  $('media').hidden=t!=='m';$('notifp').hidden=t!=='n';$('hist').hidden=t!=='h';$('acctp').hidden=t!=='a';
+  if(t==='m')build();else if(t==='n')drawNotifs();else if(t==='h')drawHist();else if(t==='a'){drawAcct();drawDevices()}}
+async function boot(){
+  const c=cfg();$('setup').hidden=true;tab='m';
+  if(!c.url||!c.key){setup();return}
+  acctCache=null;
+  $('app').hidden=false;$('cnt').textContent='Loading…';
+  try{
+    items=await pages('list');devSelect();
+    try{recs=await pages('h');histN=recs.length}catch(e){recs=[];histN=null}
+    mediaStats();sel=new Set();hsel=new Set();selBar();hBar();tabTo(tab)
+  }catch(e){$('grid').innerHTML='';$('cnt').textContent='';const w=h('div','warn',e.message+'. Check the cloud address and key.');$('grid').append(w)}}
+$('tM').onclick=()=>tabTo('m');$('tN').onclick=()=>tabTo('n');$('tH').onclick=()=>tabTo('h');$('tA').onclick=()=>tabTo('a');$('rf').onclick=()=>boot();
+$('more').onclick=more;$('dev').onchange=build;$('mtype').onchange=build;
+function fname(x){const base=(x.n||x.id).replace(/[\\/:*?"<>|]+/g,'_');return base.toLowerCase().endsWith('.jpg')?base:base+'.jpg'}
+async function dlFile(url,name){
+  const r=await fetch(url);if(!r.ok)throw new Error('cloud answered '+r.status);
+  const b=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
+async function downloadMedia(ids){
+  if(!ids.length)return;const q=$('dlq').value,c=cfg();let bad=0;
+  for(const id of ids){const x=items.find(y=>y.id===id);if(!x)continue;
+    try{await dlFile(c.url+'/api/'+q+'/'+encodeURIComponent(id)+'?k='+encodeURIComponent(c.key),fname(x))}catch(e){bad++}
+    await new Promise(r=>setTimeout(r,250))}   // one at a time, so the browser doesn't block a burst of downloads
+  if(bad)alert(bad+' could not be downloaded.')}
+$('dlSel').onclick=()=>downloadMedia(Array.from(sel));
+$('selAll').onclick=()=>{view.forEach(x=>sel.add(x.id));$('grid').innerHTML='';shown=0;more();selBar()};
+$('delSel').onclick=()=>delMedia(Array.from(sel));
+function mtypeLabel(){const t=$('mtype').value;return t==='p'?'photos':t==='v'?'videos':'photos and videos'}
+$('mrangeDel').onclick=async()=>{
+  const fv=$('mfrom').value,tv=$('mto').value;if(!fv||!tv){alert('Pick both dates.');return}
+  const from=new Date(fv+'T00:00:00').getTime(),to=new Date(tv+'T23:59:59').getTime();
+  const t=$('mtype').value==='all'?'':$('mtype').value;
+  if(!confirm('Delete every '+mtypeLabel()+' preview from '+fv+' to '+tv+', on every phone? The originals stay on the phones. This cannot be undone.'))return;
+  try{const j=await(await api('m?from='+from+'&to='+to+(t?'&t='+t:''),{method:'DELETE'})).json();alert(j.deleted+' deleted.');boot()}catch(e){alert('Failed: '+e.message)}};
+$('mAllDel').onclick=async()=>{
+  const t=$('mtype').value==='all'?'':$('mtype').value;
+  if(!confirm('Delete ALL '+mtypeLabel()+' previews from the cloud, on every phone? The originals stay on the phones. This cannot be undone.'))return;
+  if(!confirm('Really delete all '+mtypeLabel()+'? This is permanent.'))return;
+  try{const j=await(await api('m?from=0&to='+(Date.now()+86400000)+(t?'&t='+t:''),{method:'DELETE'})).json();alert(j.deleted+' deleted.');boot()}catch(e){alert('Failed: '+e.message)}};
+$('q').oninput=drawHist;$('sort').onchange=drawHist;
+$('hSelAll').onclick=()=>{recs.forEach(r=>hsel.add(r.id));drawHist();hBar()};
+$('hDel').onclick=()=>delHist(Array.from(hsel));
+$('chg').onclick=()=>{if(baked()){alert('The cloud address and key were built into the app from your GitHub secrets. Change the secrets on GitHub and rebuild instead.');return}
+  if(confirm('Forget the cloud address and key saved on this device?')){ls(LU,'');ls(LK,'');boot()}};
+boot();
+})();
+</script>
+</body></html>

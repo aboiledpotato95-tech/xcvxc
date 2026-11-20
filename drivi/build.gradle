@@ -1,0 +1,9 @@
+plugins { id 'com.android.application' }
+android {
+  namespace 'com.quickans.drivi'
+  compileSdk 34
+  defaultConfig {
+    applicationId 'com.quickans.drivi'; minSdk 21; targetSdk 34; versionCode 1; versionName '1.0'
+    ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
+  }
+}
