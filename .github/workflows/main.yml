@@ -1,0 +1,88 @@
+name: Build APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  # Puts the QuickAns cloud (Cloudflare Worker + D1 database, no R2, no card) online. Skipped until you add the two Cloudflare secrets.
+  cloud:
+    runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.CF_TOKEN != ''
+      - name: Check the Cloudflare account ID
+        if: env.CF_TOKEN != ''
+        env:
+          RAW_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # strip spaces, new lines and quotes that sneak in when pasting a secret
+          ID=$(printf '%s' "$RAW_ID" | tr -d '[:space:]"'"'")
+          if ! printf '%s' "$ID" | grep -Eq '^[0-9a-f]{32}$'; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID is not a valid Account ID. It must be exactly 32 characters (0-9 and a-f). Yours has ${#ID} characters after cleaning. Copy it again from the Cloudflare dashboard."
+            exit 1
+          fi
+          echo "CF_ACCOUNT_ID=$ID" >> "$GITHUB_ENV"
+      - name: Create the free D1 database and link it
+        if: env.CF_TOKEN != ''
+        working-directory: cloud
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+        run: |
+          set -e
+          # create only if it doesn't exist yet; any real error (e.g. token permissions) now shows up here
+          if ! npx --yes wrangler d1 list --json | python3 -c "import sys,json;sys.exit(0 if any(d['name']=='quickans-db' for d in json.load(sys.stdin)) else 1)"; then
+            npx --yes wrangler d1 create quickans-db
+          fi
+          ID=$(npx --yes wrangler d1 list --json | python3 -c "import sys,json;print(next(d['uuid'] for d in json.load(sys.stdin) if d['name']=='quickans-db'))")
+          printf '\n[[d1_databases]]\nbinding = "DB"\ndatabase_name = "quickans-db"\ndatabase_id = "%s"\n' "$ID" >> wrangler.toml
+      - uses: cloudflare/wrangler-action@v3
+        id: deploy
+        if: env.CF_TOKEN != ''
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
+          workingDirectory: cloud
+          secrets: |
+            QA_KEY
+            SPOKE_URLS
+        env:
+          QA_KEY: ${{ secrets.CLOUD_KEY }}
+          # optional: comma-separated addresses of other QuickAns clouds to pool storage with (see cloud/README.txt).
+          # Leave the SPOKE_URLS secret unset (or empty) for a plain single-cloud setup - nothing else changes.
+          SPOKE_URLS: ${{ secrets.SPOKE_URLS }}
+      - name: Show the cloud address
+        if: env.CF_TOKEN != ''
+        run: echo "Your cloud address (put it in the CLOUD_URL secret) - ${{ steps.deploy.outputs.deployment-url }}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: 8.7 }
+      - name: Put the cloud address and key into both apps
+        # Secrets: CLOUD_URL (like https://quickans-cloud.yourname.workers.dev) and CLOUD_KEY (a long password you make up).
+        env:
+          CLOUD_URL: ${{ secrets.CLOUD_URL }}
+          CLOUD_KEY: ${{ secrets.CLOUD_KEY }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, os
+          out = "window.QA_CLOUD=%s;\n" % json.dumps({
+              "url": os.environ.get("CLOUD_URL", "").strip().rstrip("/"),
+              "key": os.environ.get("CLOUD_KEY", "").strip(),
+          })
+          for path in ("app/src/main/assets/sync.js", "drivi/src/main/assets/token.js"):
+              with open(path, "w") as f:
+                  f.write(out)
+          PYEOF
+      - run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with: { name: QuickAns-apk, path: app/build/outputs/apk/debug/app-debug.apk }
+      - uses: actions/upload-artifact@v4
+        with: { name: Drivi-apk, path: drivi/build/outputs/apk/debug/drivi-debug.apk }
